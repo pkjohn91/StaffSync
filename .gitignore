@@ -1,0 +1,13 @@
+# Front-end (Node)
+node_modules/
+dist/
+.env
+.DS_Store
+
+# Back-end (Java/Spring)
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+.idea/
+*.class
+*.log
