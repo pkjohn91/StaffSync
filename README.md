@@ -3,12 +3,12 @@
 Spring Boot와 React를 활용한 직원 관리 시스템(HRMS) MVP 프로젝트입니다.
 직원들의 정보를 등록, 조회, 삭제할 수 있는 기능을 제공합니다.
 
-## 🛠 Tech Stack
+## 🛠 기술 스택
 - **Frontend:** React, Vite, Tailwind CSS (v3), Axios
 - **Backend:** Java 17, Spring Boot, JPA, H2 Database
 - **Tool:** VS Code
 
-## 🚀 Key Features
+## 🚀 핵심 구성
 - 직원 목록 조회 (Read)
 - 신규 직원 등록 (Create)
 - 직원 정보 삭제 (Delete) - Optimistic UI 적용
