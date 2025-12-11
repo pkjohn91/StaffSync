@@ -1,3 +1,17 @@
+import RegisterPage from "./components/RegisterPage";
+
+function App() {
+  return (
+    <div>
+      <RegisterPage />
+    </div>
+  );
+}
+
+export default App;
+
+/*
+
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -61,8 +75,10 @@ function App() {
     <div className="min-h-screen bg-gray-100 p-10">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-blue-600 mb-8 text-center">🏢 StaffSync HR System</h1>
+*/
 
-        {/* 입력 폼 */}
+/*
+        {/* 입력 폼 }
         <div className="bg-white p-6 rounded-lg shadow-md mb-8">
           <h2 className="text-xl font-semibold mb-4">새 직원 등록</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -76,7 +92,7 @@ function App() {
           </form>
         </div>
 
-        {/* 직원 목록 테이블 */}
+        {/* 직원 목록 테이블 }
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold mb-4">직원 목록 ({employees.length}명)</h2>
           {loading ? (
@@ -127,3 +143,4 @@ function App() {
 }
 
 export default App;
+*/

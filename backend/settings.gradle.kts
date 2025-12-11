@@ -1,1 +1,1 @@
-rootProject.name = "prtcHr"
+rootProject.name = "HRsystem"

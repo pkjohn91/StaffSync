@@ -34,8 +34,14 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	// 1. 유효성 검사 (Validation)
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    // 2. 이메일 발송 (Mail)
+    implementation("org.springframework.boot:spring-boot-starter-mail")
 }
 
 tasks.withType<Test> {
-	useJUnitPlatform()
+    useJUnitPlatform()
+    // ▼ Java 21 이상에서 Mockito 경고 없애기 (허용 옵션 추가)
+    jvmArgs("-XX:+EnableDynamicAgentLoading") 
 }
