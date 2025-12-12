@@ -1,3 +1,5 @@
+.claude/
+
 # Front-end (Node)
 node_modules/
 dist/
