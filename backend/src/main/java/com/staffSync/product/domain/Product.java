@@ -100,6 +100,26 @@ public class Product {
         }
     }
 
+    // 상품 정보 업데이트
+    public void updateDetails(String name, String category, Double price, Integer minStockLevel) {
+        if (name != null && !name.isBlank()) {
+            this.name = name;
+        }
+        if (category != null && !category.isBlank()) {
+            this.category = category;
+        }
+        if (price != null) {
+            validatePrice(price);
+            this.price = price;
+        }
+        if (minStockLevel != null) {
+            validateMinStockLevel(minStockLevel);
+            this.minStockLevel = minStockLevel;
+        }
+        this.status = calculateStatus(); // 최소 재고 수준 변경 시 상태가 바뀔 수 있음
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // 검증(Validation) 메서드
     private void validateQuantity(Integer quantity) {
         if (quantity == null || quantity < 0) {

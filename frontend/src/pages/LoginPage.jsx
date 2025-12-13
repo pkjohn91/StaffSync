@@ -4,6 +4,7 @@ import axios from 'axios';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('admin'); // 'admin' or 'employee'
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -19,32 +20,65 @@ const LoginPage = () => {
     setError('');
   };
 
-  const handleSubmit = async (e) => {
+  /**
+   * 관리자 로그인
+   */
+  const handleAdminLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      // TODO: 실제 로그인 API 연동
-      // const response = await axios.post('http://localhost:8080/api/auth/login', formData);
+      // TODO: 실제 관리자 로그인 API 연동
+      console.log('관리자 로그인 시도:', formData);
       
-      // 임시: 로그인 성공 시 대시보드로 이동
-      console.log('로그인 시도:', formData);
-      
-      // 임시 검증 (실제로는 백엔드에서 처리)
       if (formData.email && formData.password) {
-        localStorage.setItem('user', JSON.stringify({ email: formData.email }));
+        localStorage.setItem('user', JSON.stringify({ 
+          email: formData.email,
+          role: 'ADMIN'
+        }));
         navigate('/dashboard');
       } else {
         setError('이메일과 비밀번호를 입력해주세요.');
       }
     } catch (error) {
-      setError('로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.');
+      setError('로그인에 실패했습니다.');
       console.error('로그인 실패:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  /**
+   * 직원 로그인
+   */
+  const handleEmployeeLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      // TODO: 실제 직원 로그인 API 연동
+      console.log('직원 로그인 시도:', formData);
+      
+      if (formData.email && formData.password) {
+        localStorage.setItem('user', JSON.stringify({ 
+          email: formData.email,
+          role: 'EMPLOYEE'
+        }));
+        navigate('/employees'); // 직원은 직원 목록 페이지로
+      } else {
+        setError('이메일과 비밀번호를 입력해주세요.');
+      }
+    } catch (error) {
+      setError('로그인에 실패했습니다.');
+      console.error('로그인 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = activeTab === 'admin' ? handleAdminLogin : handleEmployeeLogin;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -61,78 +95,120 @@ const LoginPage = () => {
         </div>
 
         {/* 로그인 폼 */}
-        <div className="bg-white rounded-lg shadow-xl p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">로그인</h2>
+        <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+          {/* ✅ 탭 헤더 */}
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`flex-1 py-4 text-center font-semibold transition-colors focus:outline-none ${
+                activeTab === 'admin'
+                  ? 'text-indigo-600 border-b-2 border-white mb-[-1px]'
+                  : 'text-gray-500 hover:text-indigo-600'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                관리자 로그인
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('employee')}
+              className={`flex-1 py-4 text-center font-semibold transition-colors focus:outline-none ${
+                activeTab === 'employee'
+                  ? 'text-indigo-600 border-b-2 border-white mb-[-1px]'
+                  : 'text-gray-500 hover:text-indigo-600'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                직원 로그인
+              </div>
+            </button>
+          </div>
 
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{error}</p>
+
+          {/* 폼 영역 */}
+          <div className="p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              {activeTab === 'admin' ? '관리자 로그인' : '직원 로그인'}
+            </h2>
+
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <form onSubmit={handleSubmit}>
-            {/* 이메일 */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                이메일
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="example@email.com"
-                required
-              />
-            </div>
+            <form onSubmit={handleSubmit}>
+              {/* 이메일 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  이메일
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="example@email.com"
+                  required
+                />
+              </div>
 
-            {/* 비밀번호 */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                비밀번호
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="••••••••"
-                required
-              />
-            </div>
+              {/* 비밀번호 */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  비밀번호
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
 
-            {/* 로그인 버튼 */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? '로그인 중...' : '로그인'}
-            </button>
-          </form>
-
-          {/* 회원가입 링크 */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              계정이 없으신가요?{' '}
+              {/* 로그인 버튼 */}
               <button
-                onClick={() => navigate('/register')}
-                className="text-indigo-600 font-medium hover:text-indigo-700 transition-colors"
+                type="submit"
+                disabled={loading}
+                className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                회원가입
+                {loading ? '로그인 중...' : '로그인'}
               </button>
-            </p>
+            </form>
+
+            {/* 관리자만 회원가입 링크 표시 */}
+            {activeTab === 'admin' && (
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  계정이 없으신가요?{' '}
+                  <button
+                    onClick={() => navigate('/register')}
+                    className="text-indigo-600 font-medium hover:text-indigo-700 transition-colors"
+                  >
+                    회원가입
+                  </button>
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

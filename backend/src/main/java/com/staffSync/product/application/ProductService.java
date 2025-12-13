@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.staffSync.product.application.dto.CreateProductRequest;
 import com.staffSync.product.application.dto.DashboardDto;
 import com.staffSync.product.application.dto.ProductDto;
+import com.staffSync.product.application.dto.UpdateProductRequest;
 import com.staffSync.product.application.dto.UpdateStockRequest;
 import com.staffSync.product.domain.Product;
 import com.staffSync.product.domain.StockStatus;
@@ -59,6 +60,37 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
+    // ID로 상품 단일 조회
+    public ProductDto getProductById(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+        return ProductDto.from(product);
+    }
+
+    /**
+     * 카테고리별 상품 조회
+     * 
+     * @param category 카테고리명
+     * @return 해당 카테고리의 상품 목록
+     */
+    public List<ProductDto> getProductsByCategory(String category) {
+        return productRepository.findByCategory(category).stream()
+                .map(ProductDto::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 상품명으로 검색
+     * 
+     * @param keyword 검색
+     * @return 검색된 상품 목록
+     */
+    public List<ProductDto> searchProducts(String keyword) {
+        return productRepository.findByNameContainingIgnoreCase(keyword).stream()
+                .map(ProductDto::from)
+                .collect(Collectors.toList());
+    }
+
     // 재고 부족 상품 조회
     public List<ProductDto> getLowStockProducts() {
         return productRepository.findLowStockProducts().stream()
@@ -78,6 +110,22 @@ public class ProductService {
 
         Product savedProduct = productRepository.save(product);
         return ProductDto.from(savedProduct);
+    }
+
+    // 상품 정보 수정
+    @Transactional
+    public ProductDto updateProduct(Long productId, UpdateProductRequest request) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+        
+        product.updateDetails(
+            request.getName(), 
+            request.getCategory(), 
+            request.getPrice(), 
+            request.getMinStockLevel()
+        );
+        
+        return ProductDto.from(product);
     }
 
     // 재고 업데이트 (추가 또는 차감)
