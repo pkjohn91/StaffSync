@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axiosConfig';
+// import axios from 'axios';
 
 const EmployeeListPage = () => {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ const EmployeeListPage = () => {
 
   const fetchEmployees = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/employees');
+      const response = await api.get('http://localhost:8080/api/employees');
       setEmployees(response.data);
       setFilteredEmployees(response.data);
     } catch (error) {
@@ -58,7 +59,7 @@ const EmployeeListPage = () => {
     }
 
     try {
-      await axios.delete(`http://localhost:8080/api/employees/${id}`);
+      await api.delete(`http://localhost:8080/api/employees/${id}`);
       alert('✅ 직원이 삭제되었습니다.');
       fetchEmployees();
     } catch (error) {

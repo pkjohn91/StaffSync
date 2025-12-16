@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axiosConfig';
+// import axios from 'axios';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ const RegisterPage = () => {
 
     try {
       setLoading(true);
-      await axios.post(`http://localhost:8080/api/members/send-code?email=${formData.email}`);
+      await api.post(`http://localhost:8080/api/members/send-code?email=${formData.email}`);
       alert("인증 코드가 발송되었습니다! (백엔드 콘솔 확인)");
       setIsCodeSent(true);
       setIsVerified(false); // 재전송 시 인증 상태 초기화
@@ -46,7 +47,7 @@ const RegisterPage = () => {
 
     try {
       // 백엔드에 코드 검증 요청
-      await axios.post(`http://localhost:8080/api/members/verify-code`, null, {
+      await api.post(`http://localhost:8080/api/members/verify-code`, null, {
         params: {
           email: formData.email,
           code: formData.verificationCode
@@ -69,7 +70,7 @@ const RegisterPage = () => {
     if (!isVerified) return alert("이메일 인증을 먼저 완료해주세요.");
 
     try {
-      await axios.post("http://localhost:8080/api/members/register", formData);
+      await api.post("http://localhost:8080/api/members/register", formData);
       alert("🎉 회원가입 성공! 로그인 페이지로 이동합니다.");
       navigate('/login'); // ✅ 수정: 로그인 페이지로 이동
     } catch (error) {

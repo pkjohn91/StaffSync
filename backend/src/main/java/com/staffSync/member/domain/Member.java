@@ -2,15 +2,20 @@ package com.staffSync.member.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "member")
 public class Member {
 
     @Id
@@ -21,17 +26,23 @@ public class Member {
     private String email;
 
     @Column(nullable = false)
-    private String password; // 암호화 해야함
+    private String password; // 암호화된 비밀번호
 
     @Column(nullable = false)
     private String name;
 
     private boolean isVerified = false; // 이메일 인증 여부
 
-    public Member(String email, String password, String name) {
+    // 사용자 역할
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MemberRole role;
+
+    public Member(String email, String name, String password, MemberRole role) {
         this.email = email;
         this.password = password;
         this.name = name;
+        this.isVerified = false; // 초기에는 이메일 미인증 상태
         verifyEmail();
     }
 

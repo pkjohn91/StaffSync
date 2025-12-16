@@ -2,7 +2,7 @@
 
 > HR Management System - 직원 및 재고 관리 통합 시스템
 
-Spring Boot와 React를 활용한 인사 관리 시스템(HRMS) 프로젝트입니다.  
+Spring Boot와 React를 활용한 System Integration 프로젝트입니다.  
 DDD(Domain-Driven Design) 아키텍처를 적용하여 확장 가능한 구조로 설계되었습니다.
 
 ---

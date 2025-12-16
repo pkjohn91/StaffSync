@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -18,7 +17,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.staffSync.product.application.ProductService;
 import com.staffSync.product.application.dto.CreateProductRequest;
 import com.staffSync.product.application.dto.DashboardDto;
 import com.staffSync.product.application.dto.ProductDto;

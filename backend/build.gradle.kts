@@ -28,15 +28,28 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-h2console")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+
 	compileOnly("org.projectlombok:lombok")
-	runtimeOnly("com.h2database:h2")
 	annotationProcessor("org.projectlombok:lombok")
+
+	runtimeOnly("com.h2database:h2")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-	// 1. 유효성 검사 (Validation)
+
+	// Spring Security
+	implementation("org.springframework.boot:spring-boot-starter-security")
+	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+
+	// JWT
+	implementation("io.jsonwebtoken:jjwt-api:0.12.3")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.3")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.3")
+
+	// 유효성 검사 (Validation)
     implementation("org.springframework.boot:spring-boot-starter-validation")
-    // 2. 이메일 발송 (Mail)
+	
+    // 이메일 발송 (Mail)
     implementation("org.springframework.boot:spring-boot-starter-mail")
 }
 

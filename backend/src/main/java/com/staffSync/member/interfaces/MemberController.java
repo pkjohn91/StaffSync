@@ -1,5 +1,7 @@
 package com.staffSync.member.interfaces;
 
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,8 +45,14 @@ public class MemberController {
 
     // 2. 회원가입 API (검증 포함)
     @PostMapping("/register")
-    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
-        memberService.register(request);
+    public ResponseEntity<String> register(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String name = request.get("name");
+        String password = request.get("password");
+        String code = request.get("verificationCode");
+
+        memberService.register(email, name, password, code);
+
         return ResponseEntity.ok("회원가입이 완료되었습니다.");
     }
 

@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('admin'); // 'admin' or 'employee'
+  const [activeTab, setActiveTab] = useState('admin');
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -21,64 +21,42 @@ const LoginPage = () => {
   };
 
   /**
-   * 관리자 로그인
+   * 로그인 처리 (관리자 & 직원 공통)
+   * POST /api/auth/login
    */
-  const handleAdminLogin = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      // TODO: 실제 관리자 로그인 API 연동
-      console.log('관리자 로그인 시도:', formData);
+      // 실제 로그인 API 호출
+      const response = await api.post('http://localhost:8080/api/auth/login', formData);
       
-      if (formData.email && formData.password) {
-        localStorage.setItem('user', JSON.stringify({ 
-          email: formData.email,
-          role: 'ADMIN'
-        }));
+      const { accessToken, refreshToken, email, name, role } = response.data;
+      
+      // JWT 토큰 및 사용자 정보 저장
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('user', JSON.stringify({ 
+        email, 
+        name, 
+        role 
+      }));
+      
+      // 역할에 따라 페이지 이동
+      if (role === 'ADMIN') {
         navigate('/dashboard');
-      } else {
-        setError('이메일과 비밀번호를 입력해주세요.');
+      } else if (role === 'EMPLOYEE') {
+        navigate('/employees');
       }
     } catch (error) {
-      setError('로그인에 실패했습니다.');
       console.error('로그인 실패:', error);
+      setError(error.response?.data || '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.');
     } finally {
       setLoading(false);
     }
   };
-
-  /**
-   * 직원 로그인
-   */
-  const handleEmployeeLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      // TODO: 실제 직원 로그인 API 연동
-      console.log('직원 로그인 시도:', formData);
-      
-      if (formData.email && formData.password) {
-        localStorage.setItem('user', JSON.stringify({ 
-          email: formData.email,
-          role: 'EMPLOYEE'
-        }));
-        navigate('/employees'); // 직원은 직원 목록 페이지로
-      } else {
-        setError('이메일과 비밀번호를 입력해주세요.');
-      }
-    } catch (error) {
-      setError('로그인에 실패했습니다.');
-      console.error('로그인 실패:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = activeTab === 'admin' ? handleAdminLogin : handleEmployeeLogin;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -96,14 +74,14 @@ const LoginPage = () => {
 
         {/* 로그인 폼 */}
         <div className="bg-white rounded-lg shadow-xl overflow-hidden">
-          {/* ✅ 탭 헤더 */}
+          {/* 탭 헤더 */}
           <div className="flex border-b border-gray-200">
             <button
               onClick={() => setActiveTab('admin')}
-              className={`flex-1 py-4 text-center font-semibold transition-colors focus:outline-none ${
+              className={`flex-1 py-4 text-center font-medium transition-colors ${
                 activeTab === 'admin'
-                  ? 'text-indigo-600 border-b-2 border-white mb-[-1px]'
-                  : 'text-gray-500 hover:text-indigo-600'
+                  ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               <div className="flex items-center justify-center gap-2">
@@ -115,10 +93,10 @@ const LoginPage = () => {
             </button>
             <button
               onClick={() => setActiveTab('employee')}
-              className={`flex-1 py-4 text-center font-semibold transition-colors focus:outline-none ${
+              className={`flex-1 py-4 text-center font-medium transition-colors ${
                 activeTab === 'employee'
-                  ? 'text-indigo-600 border-b-2 border-white mb-[-1px]'
-                  : 'text-gray-500 hover:text-indigo-600'
+                  ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               <div className="flex items-center justify-center gap-2">
@@ -129,7 +107,6 @@ const LoginPage = () => {
               </div>
             </button>
           </div>
-
 
           {/* 폼 영역 */}
           <div className="p-8">
@@ -152,7 +129,7 @@ const LoginPage = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleLogin}>
               {/* 이메일 */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">

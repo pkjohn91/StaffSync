@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../api/axiosConfig';
+// import axios from 'axios';
 
 const EmployeeCreatePage = () => {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ const EmployeeCreatePage = () => {
 
     try {
       setLoading(true);
-      await axios.post('http://localhost:8080/api/employees', formData);
+      await api.post('http://localhost:8080/api/employees', formData);
       alert('✅ 직원이 등록되었습니다!');
       navigate('/employees');
     } catch (error) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axiosConfig';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -42,9 +42,10 @@ const DashboardPage = () => {
   const fetchData = async () => {
     try {
       const [dashboardRes, productsRes, lowStockRes] = await Promise.all([
-        axios.get('http://localhost:8080/api/products/dashboard'),
-        axios.get('http://localhost:8080/api/products'),
-        axios.get('http://localhost:8080/api/products/low-stock')
+        // axios -> api 변경
+        api.get('http://localhost:8080/api/products/dashboard'),
+        api.get('http://localhost:8080/api/products'),
+        api.get('http://localhost:8080/api/products/low-stock')
       ]);
 
       setDashboard(dashboardRes.data);
@@ -61,7 +62,7 @@ const DashboardPage = () => {
   // 재고 증가 핸들러
   const handleIncreaseStock = async (productId) => {
     try {
-      await axios.patch(
+      await api.patch(
         `http://localhost:8080/api/products/${productId}/stock/increase?amount=1`
       );
       fetchData(); // 데이터 새로고침
@@ -73,7 +74,7 @@ const DashboardPage = () => {
   // 재고 감소 핸들러
   const handleDecreaseStock = async (productId) => {
     try {
-      await axios.patch(
+      await api.patch(
         `http://localhost:8080/api/products/${productId}/stock/decrease?amount=1`
       );
       fetchData(); // 데이터 새로고침
@@ -85,7 +86,7 @@ const DashboardPage = () => {
   const handleDelete = async (id, name) => {
     if (window.confirm(`'${name}' 상품을 정말 삭제하시겠습니까?`)) {
       try {
-        await axios.delete(`http://localhost:8080/api/products/${id}`);
+        await api.delete(`http://localhost:8080/api/products/${id}`);
         alert('상품이 삭제되었습니다.');
         fetchData(); // 데이터 새로고침
       } catch (error) {

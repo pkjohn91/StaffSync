@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axiosConfig';
+// import axios from 'axios';
 
 const ProductEditPage = () => {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ const ProductEditPage = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await axios.get(`http://localhost:8080/api/products/${id}`);
+        const response = await api.get(`http://localhost:8080/api/products/${id}`);
         const product = response.data;
         
         setProductInfo({
@@ -69,7 +70,7 @@ const ProductEditPage = () => {
     try {
       setSaving(true);
       // 참고: 백엔드에 PUT /api/products/{id} 엔드포인트가 상품 메타데이터 수정을 지원해야 함
-      await axios.put(`http://localhost:8080/api/products/${id}`, formData);
+      await api.put(`http://localhost:8080/api/products/${id}`, formData);
       alert('✅ 상품 정보가 수정되었습니다!');
       navigate('/dashboard');
     } catch (error)

@@ -1,10 +1,7 @@
 package com.staffSync.product.interfaces;
 
 import java.util.List;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
 
-import org.springframework.data.repository.query.Param;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,7 +21,6 @@ import com.staffSync.product.application.dto.DashboardDto;
 import com.staffSync.product.application.dto.ProductDto;
 import com.staffSync.product.application.dto.UpdateProductRequest;
 import com.staffSync.product.application.dto.UpdateStockRequest;
-import com.staffSync.product.domain.Product;
 
 import lombok.RequiredArgsConstructor;
 
@@ -68,7 +64,8 @@ public class ProductController {
 
     // 상품 정보 수정
     @PutMapping("/{id}")
-    public ResponseEntity<ProductDto> updateProduct(@PathVariable("id") Long id, @RequestBody UpdateProductRequest request) {
+    public ResponseEntity<ProductDto> updateProduct(@PathVariable("id") Long id,
+            @RequestBody UpdateProductRequest request) {
         return ResponseEntity.ok(productService.updateProduct(id, request));
     }
 

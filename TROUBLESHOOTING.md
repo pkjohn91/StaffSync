@@ -4,7 +4,530 @@
 
 ---
 
-## 📅 2025-12-09 트러블슈팅
+## 🚀 바로가기
+
+- [2025-12-16 (Day 5)](#-2025-12-16-트러블슈팅)
+- [2025-12-12 (Day 3)](#-2025-12-12-트러블슈팅)
+- [2025-12-11 (Day 2)](#-2025-12-11-트러블슈팅)
+- [2025-12-09 (Day 1)](#-2025-12-09-트러블슈팅)
+
+---
+
+## 📅 2025-12-16 트러블슈팅
+
+### 1. JwtAuthenticationFilter 클래스 임포트 실패
+
+**문제**
+```
+SecurityConfig.java에서:
+Cannot resolve symbol 'JwtAuthenticationFilter'
+컴파일 에러 발생
+```
+
+**원인**
+- `SecurityConfig.java`를 먼저 작성한 후 `JwtAuthenticationFilter.java`를 작성
+- IDE가 아직 생성되지 않은 클래스를 참조하려고 시도
+- 파일 생성 순서 문제
+
+**해결**
+```java
+// 1단계: JwtAuthenticationFilter.java 먼저 생성
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private final JwtTokenProvider jwtTokenProvider;
+    // ...
+}
+
+// 2단계: 그 다음 SecurityConfig.java 작성
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;  // ✅ 정상 인식
+    // ...
+}
+
+// 3단계: IDE 새로고침 (필요시)
+// IntelliJ: File → Invalidate Caches → Restart
+// VS Code: Ctrl+Shift+P → Java: Clean Workspace
+```
+
+**올바른 파일 생성 순서**:
+1. `JwtProperties.java` (설정 클래스)
+2. `JwtTokenProvider.java` (토큰 생성/검증)
+3. `JwtAuthenticationFilter.java` (필터)
+4. `SecurityConfig.java` (Security 설정)
+
+**결과**: ✅ 컴파일 성공 및 Spring Security 정상 작동
+
+---
+
+### 2. MemberService.verificationCodes.remove() 에러
+
+**문제**
+```java
+// MemberService.java
+@Transactional
+public void register(String email, String name, String password, String code) {
+    // ...
+    memberRepository.save(member);
+    
+    // 6. 인증 코드 삭제
+    memberRepository.remove(email);  // ❌ 컴파일 에러
+}
+```
+
+**에러 메시지**:
+```
+Cannot resolve method 'remove' in 'MemberRepository'
+```
+
+**원인**
+- `MemberRepository`는 JPA Repository 인터페이스로, `remove()` 메서드가 존재하지 않음
+- `verificationCodes` Map과 `memberRepository`를 혼동
+- 인증 코드는 인메모리 Map에 저장되어 있음
+
+**해결**
+```java
+@Service
+@RequiredArgsConstructor
+public class MemberService {
+    private final MemberRepository memberRepository;
+    private final Map<String, String> verificationCodes = new HashMap<>();  // ← 이것!
+    
+    @Transactional
+    public void register(String email, String name, String password, String code) {
+        // ...
+        memberRepository.save(member);
+        
+        // ✅ 올바른 수정
+        verificationCodes.remove(email);  // Map에서 삭제
+    }
+}
+```
+
+**JPA Repository와 Map의 차이**:
+| 구분 | MemberRepository | verificationCodes |
+|------|------------------|-------------------|
+| 타입 | JpaRepository 인터페이스 | HashMap<String, String> |
+| 저장소 | 데이터베이스 (H2) | 메모리 (JVM Heap) |
+| 메서드 | save(), findById(), delete() 등 | put(), get(), remove() 등 |
+| 용도 | 영구 데이터 저장 | 임시 데이터 저장 |
+
+**결과**: ✅ 회원가입 완료 후 인증 코드 정상 삭제
+
+---
+
+### 3. MemberServiceTest 단위 테스트 실패
+
+**문제**
+```java
+@Test
+@DisplayName("회원가입 - 성공")
+void register_Success() {
+    // given
+    String email = "valid@test.com";
+    String code = "123456";
+    
+    memberService.requestVerification(email);  // 랜덤 코드 생성
+    
+    // when
+    memberService.register(email, name, password, code);  // ❌ 실패!
+    
+    // then
+    // ...
+}
+```
+
+**에러 메시지**:
+```
+java.lang.IllegalArgumentException: 인증 코드가 일치하지 않습니다.
+```
+
+**원인**
+- `requestVerification()` 메서드가 **랜덤 6자리 코드**를 생성
+- 테스트에서는 `"123456"` 고정값을 사용
+- 랜덤 코드와 고정 코드가 일치할 확률은 0.0001%
+
+**첫 번째 시도 (실패)**:
+```java
+// ❌ 생성된 코드를 알 수 없음
+memberService.requestVerification(email);  // 코드: "482719" (랜덤)
+memberService.register(email, name, password, "123456");  // 불일치!
+```
+
+**해결 (테스트용 메서드 추가)**:
+```java
+// MemberService.java
+@Service
+public class MemberService {
+    private final Map<String, String> verificationCodes = new HashMap<>();
+    
+    // ✅ 테스트용 메서드 추가
+    public void setVerificationCodeForTest(String email, String code) {
+        verificationCodes.put(email, code);
+    }
+    
+    // ...
+}
+```
+
+```java
+// MemberServiceTest.java
+@Test
+@DisplayName("회원가입 - 성공")
+void register_Success() {
+    // given
+    String email = "valid@test.com";
+    String code = "123456";
+    
+    // ✅ 테스트용 코드 직접 설정
+    memberService.setVerificationCodeForTest(email, code);
+    
+    given(memberRepository.existsByEmail(email)).willReturn(false);
+    given(passwordEncoder.encode(password)).willReturn("encodedPassword");
+    given(memberRepository.save(any(Member.class))).willReturn(savedMember);
+    
+    // when
+    memberService.register(email, name, password, code);  // ✅ 성공!
+    
+    // then
+    verify(memberRepository, times(1)).save(any(Member.class));
+}
+```
+
+**배운 점**:
+- 랜덤 값이나 외부 의존성이 있는 코드는 테스트가 어려움
+- 테스트 전용 메서드나 주입 가능한 인터페이스 설계 필요
+- 프로덕션 코드에 테스트용 메서드를 추가하는 것이 불가피한 경우도 있음
+
+**결과**: ✅ 모든 테스트 케이스 통과 (초록불 🟢)
+
+---
+
+### 4. TDD 테스트 - register_Fail_DuplicateEmail 잘못된 예외 발생
+
+**문제**
+```java
+@Test
+@DisplayName("회원가입 - 실패: 이미 가입된 이메일이면 예외가 발생")
+void register_Fail_DuplicateEmail() {
+    // given
+    String email = "duplicate@test.com";
+    String code = "123456";
+    
+    memberService.requestVerification(email);  // 인증 코드 생성
+    given(memberRepository.existsByEmail(email)).willReturn(true);  // 중복!
+    
+    // when & then
+    assertThatThrownBy(() -> memberService.register(email, name, password, code))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("이미 가입된 이메일입니다.");  // ❌ 예상
+}
+```
+
+**에러 메시지**:
+```
+예상: "이미 가입된 이메일입니다."
+실제: "인증 코드가 일치하지 않습니다."
+```
+
+**원인 분석**:
+```java
+// MemberService.register() 메서드 실행 순서
+public void register(String email, String name, String password, String code) {
+    // 1. 인증 코드 검증 (먼저 실행!)
+    if (!verifyCode(email, code)) {
+        throw new IllegalArgumentException("인증 코드가 일치하지 않습니다.");  // ← 여기서 걸림!
+    }
+    
+    // 2. 중복 체크 (실행 안 됨)
+    if (memberRepository.existsByEmail(email)) {
+        throw new IllegalArgumentException("이미 가입된 이메일입니다.");
+    }
+    // ...
+}
+```
+
+- `requestVerification()`으로 랜덤 코드 생성 → 예: "748291"
+- 테스트에서 `"123456"` 전달 → 불일치!
+- 인증 코드 검증에서 먼저 예외 발생 → 중복 체크까지 도달 못 함
+
+**해결**:
+```java
+@Test
+@DisplayName("회원가입 - 실패: 이미 가입된 이메일이면 예외가 발생")
+void register_Fail_DuplicateEmail() {
+    // given
+    String email = "duplicate@test.com";
+    String code = "123456";
+    
+    // ✅ 1. 인증 코드를 먼저 설정 (인증 통과시킴)
+    memberService.setVerificationCodeForTest(email, code);
+    
+    // ✅ 2. 그 다음 중복 설정
+    given(memberRepository.existsByEmail(email)).willReturn(true);
+    
+    // when & then
+    assertThatThrownBy(() -> memberService.register(email, name, password, code))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("이미 가입된 이메일입니다.");  // ✅ 정상!
+}
+```
+
+**실행 흐름**:
+```
+1. verifyCode(email, "123456") → true ✅ (통과)
+2. existsByEmail(email) → true → 예외 발생 ✅ (예상된 예외)
+```
+
+**결과**: ✅ 테스트 통과 및 정확한 예외 메시지 확인
+
+---
+
+### 5. ProductRepository.findByNameContainingIgnoreCase() 메서드 미정의
+
+**문제**
+```java
+// ProductService.java
+public List<ProductDto> searchProducts(String keyword) {
+    return productRepository.findByNameContainingIgnoreCase(keyword)  // ❌ 컴파일 에러
+        .stream()
+        .map(ProductDto::from)
+        .collect(Collectors.toList());
+}
+```
+
+**에러 메시지**:
+```
+Cannot resolve method 'findByNameContainingIgnoreCase' in 'ProductRepository'
+```
+
+**원인**
+- `ProductRepository` 인터페이스에 해당 메서드 선언이 없음
+- Spring Data JPA는 메서드 이름을 보고 자동으로 쿼리를 생성하지만, 메서드 자체는 선언되어야 함
+
+**해결**:
+```java
+// ProductRepository.java
+public interface ProductRepository extends JpaRepository<Product, Long> {
+    
+    // ✅ 메서드 추가 (Spring Data JPA가 자동 구현)
+    List<Product> findByNameContainingIgnoreCase(String keyword);
+    
+    // 기존 메서드들
+    List<Product> findByCategory(String category);
+    List<Product> findByStatus(StockStatus status);
+    // ...
+}
+```
+
+**Spring Data JPA 자동 구현 원리**:
+```java
+// 메서드 이름 분석
+findBy + Name + Containing + IgnoreCase
+
+// 생성되는 JPQL (자동)
+SELECT p FROM Product p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+```
+
+**메서드 네이밍 규칙**:
+| 키워드 | 설명 | 예시 |
+|--------|------|------|
+| `findBy` | 조회 | `findByName()` |
+| `Containing` | LIKE '%keyword%' | `findByNameContaining()` |
+| `IgnoreCase` | 대소문자 무시 | `findByNameIgnoreCase()` |
+| `StartingWith` | LIKE 'keyword%' | `findByNameStartingWith()` |
+| `EndingWith` | LIKE '%keyword' | `findByNameEndingWith()` |
+| `OrderBy` | 정렬 | `findByNameOrderByPriceDesc()` |
+
+**결과**: ✅ 상품명 검색 기능 정상 작동
+
+---
+
+### 6. EmployeeEditPage에서 수정 버튼 클릭 시 로그인 페이지로 리다이렉트
+
+**문제**
+```
+직원 목록에서 "수정" 버튼 클릭
+→ /employees/edit/{id}로 이동 시도
+→ 갑자기 /login으로 리다이렉트됨
+```
+
+**원인 분석**:
+```jsx
+// ProtectedRoute.jsx
+const ProtectedRoute = ({ children }) => {
+  const user = localStorage.getItem('user');
+  
+  if (!user) {
+    console.log('❌ 인증 없음, 로그인 페이지로 리다이렉트');
+    return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+};
+```
+
+**가능한 원인들**:
+1. localStorage의 `user` 키가 삭제됨
+2. 페이지 이동 중 localStorage가 초기화됨
+3. React Router의 상태 관리 문제
+4. 브라우저 세션 만료
+
+**디버깅 과정**:
+```jsx
+// EmployeeListPage.jsx - 수정 버튼
+<button
+  onClick={() => {
+    console.log('수정 버튼 클릭, ID:', employee.id);
+    console.log('현재 localStorage:', localStorage.getItem('user'));  // ← 확인
+    navigate(`/employees/edit/${employee.id}`);
+  }}
+>
+  수정
+</button>
+```
+
+**해결 시도 1: ProtectedRoute 강화**
+```jsx
+import { Navigate, useLocation } from 'react-router-dom';
+
+const ProtectedRoute = ({ children }) => {
+  const location = useLocation();
+  const userString = localStorage.getItem('user');
+  
+  console.log('=== ProtectedRoute 디버깅 ===');
+  console.log('현재 경로:', location.pathname);
+  console.log('localStorage user:', userString);
+  
+  if (!userString) {
+    console.log('❌ 인증 없음 - 로그인 페이지로 리다이렉트');
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  
+  try {
+    const user = JSON.parse(userString);
+    console.log('✅ 인증됨:', user);
+    return children;
+  } catch (error) {
+    console.error('❌ user 데이터 파싱 에러:', error);
+    localStorage.removeItem('user');  // 손상된 데이터 제거
+    return <Navigate to="/login" replace />;
+  }
+};
+```
+
+**해결 시도 2: 라우팅 순서 확인**
+```jsx
+// App.jsx
+<Routes>
+  {/* ✅ 더 구체적인 경로를 먼저 */}
+  <Route 
+    path="/employees/edit/:id" 
+    element={
+      <ProtectedRoute>
+        <EmployeeEditPage />
+      </ProtectedRoute>
+    } 
+  />
+  
+  {/* ✅ 덜 구체적인 경로를 나중에 */}
+  <Route 
+    path="/employees" 
+    element={
+      <ProtectedRoute>
+        <EmployeeListPage />
+      </ProtectedRoute>
+    } 
+  />
+</Routes>
+```
+
+**최종 해결**: 
+- 브라우저 콘솔 로그 확인 결과, localStorage에 `user` 데이터가 정상 존재
+- 실제 문제는 **다른 곳**에서 발생했을 가능성 (예: API 401 에러로 인한 Axios Interceptor의 자동 로그아웃)
+- ProtectedRoute 디버깅 로그 추가로 문제 원인 파악 가능
+
+**결과**: ✅ 수정 페이지 정상 접근 가능
+
+---
+
+### 7. Gmail SMTP 설정 시 "535 Authentication failed" 에러
+
+**문제**
+```
+Caused by: javax.mail.AuthenticationFailedException: 
+535-5.7.8 Username and Password not accepted.
+```
+
+**원인**
+1. **2단계 인증 미활성화**: Gmail은 보안상 2단계 인증 필수
+2. **앱 비밀번호 미생성**: 일반 Gmail 비밀번호는 SMTP에서 사용 불가
+3. **잘못된 비밀번호**: 공백 포함 또는 오타
+
+**해결 단계**:
+
+**1단계: 2단계 인증 활성화**
+```
+1. Google 계정 관리 (https://myaccount.google.com/) 접속
+2. 보안 메뉴 클릭
+3. "2단계 인증" 활성화
+```
+
+**2단계: 앱 비밀번호 생성**
+```
+1. 보안 페이지에서 "앱 비밀번호" 검색
+2. 앱 선택: 메일
+3. 기기 선택: 기타 (사용자 지정 이름: StaffSync)
+4. 생성 클릭
+5. 16자리 비밀번호 복사 (예: abcd efgh ijkl mnop)
+```
+
+**3단계: application.properties 설정**
+```properties
+# ❌ 잘못된 설정 (일반 비밀번호)
+spring.mail.username=yourname@gmail.com
+spring.mail.password=your-gmail-password
+
+# ✅ 올바른 설정 (앱 비밀번호, 공백 제거)
+spring.mail.username=yourname@gmail.com
+spring.mail.password=abcdefghijklmnop
+```
+
+**4단계: VS Code launch.json 설정**
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "StaffSync",
+      "request": "launch",
+      "mainClass": "com.staffSync.StaffSyncApplication",
+      "projectName": "backend",
+      "env": {
+        "MAIL_USERNAME": "yourname@gmail.com",
+        "MAIL_PASSWORD": "abcdefghijklmnop"
+      }
+    }
+  ]
+}
+```
+
+**테스트**:
+```bash
+# 서버 실행 후 로그 확인
+📧 이메일 설정: Gmail SMTP 사용
+✅ HTML 이메일 발송 완료: test@gmail.com
+```
+
+**결과**: ✅ Gmail SMTP를 통한 이메일 정상 발송
+
+---
+
+## 📅 2025-12-12 트러블슈팅
 
 ### 1. Tailwind CSS 버전 충돌 문제
 
@@ -452,4 +975,4 @@ export default ProtectedRoute;
 
 ---
 
-**마지막 업데이트**: 2025-12-12
+**마지막 업데이트**: 2025-12-16

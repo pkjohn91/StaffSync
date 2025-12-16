@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axiosConfig';
+// import axios from 'axios';
 
 const EmployeeEditPage = () => {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ const EmployeeEditPage = () => {
   useEffect(() => {
     const fetchEmployee = async () => {
       try {
-        const response = await axios.get(`http://localhost:8080/api/employees/${id}`);
+        const response = await api.get(`http://localhost:8080/api/employees/${id}`);
         const employee = response.data;
         
         setEmployeeInfo({
@@ -81,7 +82,7 @@ const EmployeeEditPage = () => {
 
     try {
       setSaving(true);
-      await axios.put(`http://localhost:8080/api/employees/${id}`, formData);
+      await api.put(`http://localhost:8080/api/employees/${id}`, formData);
       alert('✅ 직원 정보가 수정되었습니다!');
       navigate('/employees');
     } catch (error) {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axiosConfig';
+// import axios from 'axios';
 
 const ProductCreatePage = () => {
   const navigate = useNavigate();
@@ -47,7 +48,7 @@ const ProductCreatePage = () => {
 
     try {
       setLoading(true);
-      await axios.post('http://localhost:8080/api/products', formData);
+      await api.post('http://localhost:8080/api/products', formData);
       alert('✅ 상품이 등록되었습니다!');
       navigate('/dashboard'); // 대시보드로 이동
     } catch (error) {
