@@ -1,3 +1,4 @@
+# AI
 .claude/
 
 # Front-end (Node)
@@ -14,6 +15,25 @@ target/
 *.class
 *.log
 
-# 환경 변수
+### env files ###
 .env
+.env.local
+.env.*.local
 *.env
+
+# launch.json
+.vscode/launch.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~.nib

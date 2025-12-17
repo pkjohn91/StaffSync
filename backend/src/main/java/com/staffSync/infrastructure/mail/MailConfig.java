@@ -1,6 +1,7 @@
 package com.staffSync.infrastructure.mail;
 
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +12,7 @@ import java.util.Properties;
 
 /**
  * 이메일 발송을 위한 JavaMailSender 설정
- * 선택한 provider(gmail, naver, kakao)에 따라 자동으로 설정됨
+ * 프로바이더(Gmail, Naver, Kakao)에 따라 동적으로 SMTP 설정을 변경
  */
 @Configuration
 @RequiredArgsConstructor

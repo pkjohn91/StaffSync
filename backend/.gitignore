@@ -35,3 +35,26 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### env files ###
+.env
+.env.local
+.env.*.local
+*.env
+
+# launch.json
+.vscode/launch.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~.nib

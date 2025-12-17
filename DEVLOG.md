@@ -6,11 +6,139 @@
 
 ## 🚀 바로가기
 
+- [2025-12-17 (Day 6)](#2025-12-17-day-6)
 - [2025-12-16 (Day 5)](#2025-12-16-day-5)
 - [2025-12-13 (Day 4)](#2025-12-13-day-4)
 - [2025-12-12 (Day 3)](#2025-12-12-day-3)
 - [2025-12-11 (Day 2)](#2025-12-11-day-2)
 - [2025-12-09 (Day 1)](#2025-12-09-day-1)
+
+---
+
+## 2025-12-17 (Day 6)
+
+### ✨ 기능 개발
+
+#### 실제 이메일 발송 시스템 구현
+
+- **EmailService HTML 템플릿**: `sendVerificationCodeHtml()` 메서드 구현
+  - 그라데이션 헤더와 브랜드 디자인
+  - 42px 크기의 인증 코드 강조 표시
+  - 반응형 디자인 (모바일/데스크톱 지원)
+  - 경고 박스 (유효 시간, 보안 주의사항)
+- **MemberService 실제 이메일 연동**:
+  - Mock 콘솔 출력 → 실제 Gmail SMTP 발송으로 변경
+  - 이메일 발송 실패 시 콘솔 백업 출력
+  - `MessagingException` 예외 처리
+
+#### 인증 코드 만료 시간 관리
+- **만료 시간 설정**: 10분 (600초)
+- **codeExpirationTimes Map 추가**: 이메일별 만료 시간 저장
+- **verifyCode() 로직 개선**: 
+  - 인증 코드 존재 여부 확인
+  - 만료 시간 체크 (현재 시간 > 만료 시간)
+  - 만료된 코드 자동 삭제
+- **getRemainingSeconds() 메서드 추가**: 남은 시간 조회 API
+
+#### 프론트엔드 타이머 UI
+- **RegisterPage 타이머 기능**:  
+  - 10:00부터 0:00까지 카운트다운  
+  - 1분 이하일 때 빨간색 강조  
+  - 만료 시 경고 메시지 표시
+- **인증 코드 재발송 기능**:
+  - 재발송 버튼 추가  
+  - 타이머 재시작 (10분)
+  - 새로운 인증 코드 이메일 발송
+- **formatTime() 함수**: mm:ss 형식 변환
+
+### 🔐 보안 및 설정
+
+#### 환경 변수 관리
+- **application.properties 개선**:
+  - `${환경변수:기본값}` 패턴 적용
+  - 실제 운영 환경: 환경 변수 사용
+  - 테스트 환경: 기본값 사용
+- **launch.json 설정**:  
+  - VS Code 디버깅 시 환경 변수 자동 주입  
+  - Gmail 앱 비밀번호 안전하게 관리
+- **.gitignore 보안 강화**:
+  - `.vscode/launch.json` 추가
+  - `.env` 파일들 제외
+- **launch.json.example 생성**:
+  - 팀원용 템플릿 파일  
+  - 실제 값이 아닌 플레이스홀더
+
+#### Gmail SMTP 설정
+- **앱 비밀번호 생성 가이드**:
+  - 2단계 인증 활성화  
+  - 16자리 앱 비밀번호 생성  
+  - 공백 제거 후 사용
+- **MailConfig 디버깅 로그**:  
+  - Host, Port, Username 확인
+  - Password 마스킹 처리 (마지막 4자리만 표시)  
+  - Password Length 검증
+
+### 🔧 기술 작업 및 버그 수정
+
+#### Member 엔티티 수정
+- **role 필드 Enum 설정**:  
+  - `@Enumerated(EnumType.STRING)` 추가  
+  - `@Column(nullable = false)` 제약 조건
+- **생성자 수정**: role 파라미터 명시적 설정
+- **데이터베이스 초기화**: H2 테이블 재생성 (`ddl-auto=create`)
+
+#### MemberController API 추가
+- **GET /api/members/code-time**: 인증 코드 남은 시간 조회
+  - remainingSeconds: 남은 시간 (초)  
+  - isExpired: 만료 여부
+
+#### TDD 테스트 수정
+- **MemberServiceTest 리팩토링**:  
+  - EmailService Mock 추가  
+  - `doNothing().when(emailService).sendVerificationCodeHtml()` 설정  
+- 예외 메시지 업데이트: "인증 코드가 일치하지 않거나 만료되었습니다."  
+- 새로운 테스트 추가:    
+  - `requestVerification_EmailFailure_CodeStillSaved()`
+  - `getRemainingSeconds_NoCode_ReturnsZero()`    
+  - `getRemainingSeconds_HasCode_ReturnsTime()`
+- **Mockito Spy 패턴 적용**:
+  - `@Spy @InjectMocks` 조합  
+  - `doReturn().when()` 문법으로 변경  
+  - Strict Stubbing 문제 해결
+
+#### axiosConfig 설정
+- **frontend/src/api/axiosConfig.js 생성**:  
+  - Axios 인스턴스 중앙 관리  
+  - 요청 인터셉터: JWT 토큰 자동 첨부  
+  - 응답 인터셉터: 401 에러 시 자동 로그아웃
+- **기존 컴포넌트 수정**:
+  - `import axios` → `import api from '../api/axiosConfig'`  
+  - EmployeeEditPage, EmployeeListPage 등 적용
+
+### 📝 배운 점
+
+#### 이메일 발송
+- **HTML 이메일 작성**: MimeMessage와 MimeMessageHelper 사용
+- **인라인 CSS**: 이메일 클라이언트 호환성을 위해 인라인 스타일 필수
+- **SMTP 인증 문제**: Gmail 앱 비밀번호 필수, 계정 비밀번호 사용 불가
+- **MessagingException 처리**: 네트워크 오류 대비 백업 로직 구현
+
+#### 환경 변수 관리
+- **보안의 중요성**: 민감 정보를 코드에서 분리
+- **launch.json vs .env**: VS Code는 launch.json, 일반 실행은 .env
+- **.gitignore 전략**: 실제 설정 파일은 제외, example 파일은 커밋
+- **기본값 패턴**: `${VAR:default}` 형식으로 유연성 확보
+
+#### 타이머 구현
+- **useEffect 정리**: 컴포넌트 언마운트 시 setInterval 제거 필수
+- **시간 포맷**: Math.floor()와 padStart()로 mm:ss 형식 구현
+- **조건부 렌더링**: 남은 시간에 따라 UI 색상 변경
+
+#### TDD
+- **Spy vs Mock**: Spy는 실제 객체 + 부분 Mock 가능
+- **doReturn vs given**: Strict Stubbing 환경에서는 doReturn 권장
+- **파라미터 매칭**: eq()를 사용한 정확한 파라미터 매칭
+
 
 ---
 

@@ -6,10 +6,625 @@
 
 ## 🚀 바로가기
 
+- [2025-12-17 (Day 6)](#-2025-12-17-트러블슈팅)
 - [2025-12-16 (Day 5)](#-2025-12-16-트러블슈팅)
 - [2025-12-12 (Day 3)](#-2025-12-12-트러블슈팅)
 - [2025-12-11 (Day 2)](#-2025-12-11-트러블슈팅)
 - [2025-12-09 (Day 1)](#-2025-12-09-트러블슈팅)
+
+---
+
+## 📅 2025-12-17 트러블슈팅
+
+### 1. EmailService.sendVerificationCodeHtml() 메서드 누락
+
+**문제**
+```
+MemberService.java 컴파일 에러:
+Cannot resolve method 'sendVerificationCodeHtml' in 'EmailService'
+```
+
+**원인**
+- 어제(2025-12-16) EmailService 클래스를 생성했으나 HTML 이메일 발송 메서드는 구현하지 않음
+- MemberService에서 `emailService.sendVerificationCodeHtml()`를 호출하려 했지만 메서드가 존재하지 않음
+
+**해결**
+```java
+// EmailService.java에 메서드 추가
+public void sendVerificationCodeHtml(String toEmail, String code) throws MessagingException {
+    MimeMessage message = mailSender.createMimeMessage();
+    MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+    
+    helper.setFrom(fromEmail);
+    helper.setTo(toEmail);
+    helper.setSubject("[StaffSync] 이메일 인증 코드");
+    
+    String htmlContent = String.format("""
+        <!DOCTYPE html>
+        <html>
+        <!-- HTML 템플릿 -->
+        </html>
+        """, code);
+    
+    helper.setText(htmlContent, true); // true = HTML 형식
+    mailSender.send(message);
+}
+```
+
+**HTML 이메일 템플릿 특징**:
+- 그라데이션 헤더 (보라색)
+- 42px 크기의 인증 코드 강조
+- 반응형 디자인 (최대 600px)
+- 인라인 CSS (이메일 클라이언트 호환성)
+- 경고 박스 (유효 시간 10분, 보안 주의)
+
+**결과**: ✅ HTML 형식의 예쁜 이메일 발송 가능
+
+---
+
+### 2. StaffSyncApplicationTests contextLoads() 실패
+
+**문제**
+```
+java.lang.IllegalStateException: Failed to load ApplicationContext
+Caused by: org.springframework.util.PlaceholderResolutionException: 
+Could not resolve placeholder 'MAIL_USERNAME' in value "${MAIL_USERNAME}"
+```
+
+**원인**
+- 테스트 실행 시 환경 변수가 설정되지 않음
+- `application.properties`의 `${MAIL_USERNAME}`, `${MAIL_PASSWORD}` 플레이스홀더를 찾을 수 없음
+- Spring Boot는 테스트 환경에서도 모든 Bean을 초기화하려고 시도
+
+**해결 방법 1**: 테스트용 application.properties 생성
+
+**파일**: `backend/src/test/resources/application.properties`
+```properties
+# JWT (테스트용)
+jwt.secret=testSecretKeyForJwtTokenGeneration123456789
+jwt.access-token-expiration=3600000
+jwt.refresh-token-expiration=604800000
+
+# SMTP (테스트용 더미 값)
+app.mail.provider=gmail
+app.mail.from=test@test.com
+
+mail.gmail.host=smtp.gmail.com
+mail.gmail.port=587
+mail.gmail.username=test@gmail.com
+mail.gmail.password=test-password
+mail.gmail.auth=true
+mail.gmail.starttls.enable=true
+mail.gmail.starttls.required=true
+mail.gmail.connectiontimeout=5000
+mail.gmail.timeout=5000
+mail.gmail.writetimeout=5000
+
+# 나머지 Naver, Kakao도 더미 값 설정
+```
+
+**해결 방법 2**: @ActiveProfiles 사용
+
+**파일**: `backend/src/test/resources/application-test.properties`
+```properties
+# 테스트 전용 설정
+```
+
+**파일**: `StaffSyncApplicationTests.java`
+```java
+@SpringBootTest
+@ActiveProfiles("test")  // test 프로파일 활성화
+class StaffSyncApplicationTests {
+    @Test
+    void contextLoads() {
+    }
+}
+```
+
+**결과**: ✅ 모든 테스트 통과
+
+---
+
+### 3. Member 엔티티 ROLE 컬럼 NULL 제약 조건 위반
+
+**문제**
+```
+org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException: 
+NULL not allowed for column "ROLE"; SQL statement:
+insert into member (email,is_verified,name,password,role,id) values (?,?,?,?,?,default)
+```
+
+**원인**
+```java
+// Member.java
+@Entity
+public class Member {
+    // ...
+    private MemberRole role;  // ❌ @Enumerated 누락
+    
+    public Member(String email, String name, String password, MemberRole role) {
+        this.email = email;
+        this.name = name;
+        this.password = password;
+        // this.role = role;  ← ❌ 누락
+    }
+}
+```
+
+- `@Enumerated` 어노테이션이 없어서 Enum이 제대로 저장되지 않음
+- 생성자에서 role을 설정하지 않아 null 저장 시도
+- H2 데이터베이스의 NOT NULL 제약 조건 위반
+
+**해결**
+```java
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Member {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(nullable = false, unique = true)
+    private String email;
+    
+    @Column(nullable = false)
+    private String name;
+    
+    @Column(nullable = false)
+    private String password;
+    
+    @Enumerated(EnumType.STRING)  // ✅ 추가
+    @Column(nullable = false)      // ✅ NOT NULL 제약
+    private MemberRole role;
+    
+    @Column(nullable = false)
+    private boolean isVerified = false;
+    
+    public Member(String email, String name, String password, MemberRole role) {
+        this.email = email;
+        this.name = name;
+        this.password = password;
+        this.role = role;  // ✅ 추가
+        this.isVerified = false;
+    }
+    
+    public void verify() {
+        this.isVerified = true;
+    }
+}
+```
+
+**데이터베이스 초기화**:
+```properties
+# application.properties
+spring.jpa.hibernate.ddl-auto=create  # 테이블 재생성
+```
+
+또는 H2 Console에서:
+```sql
+DROP TABLE IF EXISTS MEMBER;
+```
+
+**결과**: ✅ 회원가입 시 ROLE 컬럼에 "ADMIN" 정상 저장
+
+---
+
+### 4. Gmail SMTP 인증 실패 - 535-5.7.8 Bad Credentials
+
+**문제**
+```
+jakarta.mail.AuthenticationFailedException: 
+535-5.7.8 Username and Password not accepted. 
+For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials
+```
+
+**원인**
+1. **Gmail 계정 비밀번호 사용**: Gmail 계정 비밀번호는 SMTP에서 사용 불가
+2. **앱 비밀번호 미생성**: 2단계 인증 + 앱 비밀번호 필수
+3. **환경 변수 미로드**: `launch.json`의 환경 변수가 적용되지 않음
+4. **기본값 사용**: `test@gmail.com`, `test-password` 같은 더미 값 사용
+
+**디버깅 로그 추가**:
+```java
+// MailConfig.java
+private void configureGmail(JavaMailSenderImpl mailSender) {
+    String username = env.getProperty("mail.gmail.username");
+    String password = env.getProperty("mail.gmail.password");
+    
+    // 디버깅
+    System.out.println("=================================");
+    System.out.println("📧 Gmail SMTP 설정 확인");
+    System.out.println("Username: " + username);
+    System.out.println("Password: ****" + password.substring(Math.max(0, password.length() - 4)));
+    System.out.println("Password Length: " + password.length());
+    System.out.println("=================================");
+    
+    // ...
+}
+```
+
+**해결 단계**:
+
+**1단계: Gmail 앱 비밀번호 생성**
+1. https://myaccount.google.com/apppasswords 접속
+2. 2단계 인증 활성화 확인
+3. 앱 비밀번호 생성:
+   - 앱: 메일
+   - 기기: 기타 (사용자 지정 - StaffSync)
+4. 16자리 비밀번호 복사
+   ```
+   예시: abcd efgh ijkl mnop
+   → 공백 제거: abcdefghijklmnop
+   ```
+
+**2단계: application.properties 임시 테스트**
+```properties
+# ⚠️ 임시 테스트용 (Git에 커밋 금지!)
+mail.gmail.username=your-actual-email@gmail.com
+mail.gmail.password=abcdefghijklmnop
+```
+
+서버 재시작 → 이메일 발송 테스트 → 성공 확인
+
+**3단계: 환경 변수 방식으로 전환**
+
+**파일**: `backend/.vscode/launch.json`
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "StaffSync Application",
+      "request": "launch",
+      "mainClass": "com.staffSync.StaffSyncApplication",
+      "projectName": "backend",
+      "env": {
+        "JWT_SECRET": "mySecretKeyForJwtTokenGeneration123456789",
+        "MAIL_FROM": "your-actual-email@gmail.com",
+        "MAIL_USERNAME": "your-actual-email@gmail.com",
+        "MAIL_PASSWORD": "abcdefghijklmnop"
+      }
+    }
+  ]
+}
+```
+
+**파일**: `backend/src/main/resources/application.properties`
+```properties
+# 환경 변수 방식 (기본값 포함)
+mail.gmail.username=${MAIL_USERNAME:test@gmail.com}
+mail.gmail.password=${MAIL_PASSWORD:test-password}
+```
+
+**4단계: .gitignore 보안 강화**
+```gitignore
+# VS Code
+.vscode/launch.json
+
+# Environment files
+.env
+.env.local
+*.env
+```
+
+**5단계: launch.json.example 생성 (팀 공유용)**
+```json
+{
+  "env": {
+    "MAIL_FROM": "your-email@gmail.com",
+    "MAIL_USERNAME": "your-email@gmail.com",
+    "MAIL_PASSWORD": "your-16-digit-app-password"
+  }
+}
+```
+
+**VS Code 실행 방법**:
+- F5 누르기 (Run and Debug)
+- ⚠️ `./gradlew bootRun`은 환경 변수 미적용!
+
+**성공 로그**:
+```bash
+=================================
+📧 Gmail SMTP 설정 확인
+Host: smtp.gmail.com
+Port: 587
+Username: your-actual-email@gmail.com
+Password: ****mnop
+Password Length: 16
+=================================
+✅ HTML 이메일 발송 완료: your-actual-email@gmail.com
+```
+
+**결과**: ✅ 실제 Gmail로 인증 코드 이메일 발송 성공
+
+---
+
+### 5. axiosConfig 파일 없음 에러
+
+**문제**
+```
+[plugin:vite:import-analysis] 
+Failed to resolve import "../api/axiosConfig" from "src/pages/Employee/EmployeeEditPage.jsx". 
+Does the file exist?
+```
+
+**원인**
+- `EmployeeEditPage.jsx`에서 `import api from "../api/axiosConfig"` 사용
+- 하지만 `axiosConfig.js` 파일이 실제로 존재하지 않음
+- JWT 토큰 자동 첨부 기능을 위해 필요한 파일
+
+**해결**:
+
+**파일 생성**: `frontend/src/api/axiosConfig.js`
+```javascript
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'http://localhost:8080',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// 요청 인터셉터: JWT 토큰 자동 첨부
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 응답 인터셉터: 401 에러 시 자동 로그아웃
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      console.log('🔒 인증 실패: 로그인 페이지로 이동');
+      
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      
+      window.location.href = '/login';
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+```
+
+**기존 파일 수정**:
+```javascript
+// EmployeeListPage.jsx, DashboardPage.jsx 등
+// ❌ 기존
+import axios from 'axios';
+const response = await axios.get('/api/employees');
+
+// ✅ 수정
+import api from '../api/axiosConfig';
+const response = await api.get('/api/employees');
+```
+
+**장점**:
+- JWT 토큰 자동 첨부 (매번 Authorization 헤더 설정 불필요)
+- 401 에러 자동 처리 (자동 로그아웃)
+- 코드 중복 제거 (DRY 원칙)
+
+**결과**: ✅ 모든 API 요청에 JWT 토큰 자동 첨부
+
+---
+
+### 6. MemberServiceTest - Mockito Strict Stubbing 에러
+
+**문제**
+```java
+@Test
+void register_Fail_InvalidCode() {
+    String wrongCode = "999999";
+    
+    doReturn(false).when(memberService).verifyCode(email, wrongCode);
+    
+    // 테스트 실행
+    memberService.register(email, name, password, wrongCode);
+}
+```
+
+**에러 메시지**:
+```
+org.mockito.exceptions.misusing.PotentialStubbingProblem: 
+Strict stubbing argument mismatch. Please check:
+ - this invocation of 'verifyCode' method:
+    memberService.verifyCode("invalid@test.com", "999999");
+ - has following stubbing(s) with different arguments:
+    1. memberService.verifyCode("invalid@test.com", "123456");
+```
+
+**원인**
+- Mockito의 **Strict Stubbing** 모드가 활성화되어 있음
+- 같은 메서드를 다른 파라미터로 stubbing하면 에러 발생
+- 테스트 간 stubbing 충돌
+
+**해결 방법 1**: 정확한 파라미터로 Stubbing (권장)
+```java
+@Test
+void register_Fail_InvalidCode() {
+    String wrongCode = "999999";
+    
+    // ✅ 정확한 파라미터로 stubbing
+    doReturn(false).when(memberService).verifyCode(eq(email), eq(wrongCode));
+    
+    assertThatThrownBy(() -> memberService.register(email, name, password, wrongCode))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("인증 코드가 일치하지 않거나 만료되었습니다.");
+}
+```
+
+**해결 방법 2**: @MockitoSettings(strictness = Strictness.LENIENT)
+```java
+@Test
+@MockitoSettings(strictness = Strictness.LENIENT)
+void register_Fail_InvalidCode() {
+    // ...
+}
+```
+
+**해결 방법 3**: @Spy 사용
+```java
+@Spy
+@InjectMocks
+private MemberService memberService;
+
+@Test
+void register_Success() {
+    // Spy는 실제 객체 + 부분 Mock 가능
+    doReturn(true).when(memberService).verifyCode(eq(email), eq(code));
+    
+    // ...
+}
+```
+
+**차이점**:
+| 방법 | 특징 | 사용 시점 |
+|------|------|-----------|
+| eq() | 정확한 파라미터 매칭 | 기본 권장 |
+| Lenient | 엄격하지 않은 검증 | 레거시 코드 |
+| Spy | 실제 객체 + Mock | 부분 Mock 필요 시 |
+
+**결과**: ✅ 모든 테스트 통과 (초록불 🟢)
+
+---
+
+### 7. launch.json 환경 변수가 적용되지 않음
+
+**문제**
+```bash
+# 로그 확인
+=================================
+📧 Gmail SMTP 설정 확인
+Username: test@gmail.com  ← 기본값
+Password: ****word
+Password Length: 13  ← 16이 아님
+=================================
+
+# 이메일 발송 실패
+AuthenticationFailedException: 535-5.7.8 Username and Password not accepted
+```
+
+**원인**
+1. **VS Code 실행 방식 오류**: F5가 아닌 터미널에서 `./gradlew bootRun` 실행
+2. **launch.json 위치 오류**: `backend/.vscode/launch.json`이 아닌 다른 위치
+3. **Java Extension 미설치**: VS Code Java Extension Pack 없음
+4. **launch.json 문법 오류**: JSON 포맷 에러 (쉼표, 따옴표)
+
+**해결 방법**:
+
+**1. VS Code에서 정확히 실행**
+```
+1. Run and Debug 패널 열기 (Ctrl + Shift + D)
+2. 상단 드롭다운: "StaffSync Application" 선택
+3. F5 누르기 (또는 초록색 재생 버튼)
+```
+
+**⚠️ 주의**: 터미널에서 `./gradlew bootRun`은 launch.json 환경 변수 미적용!
+
+**2. Java Extension Pack 설치 확인**
+```
+1. Extensions (Ctrl + Shift + X)
+2. "Extension Pack for Java" 검색
+3. 설치 확인
+```
+
+**3. launch.json 문법 확인**
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "StaffSync Application",
+      "request": "launch",
+      "mainClass": "com.staffSync.StaffSyncApplication",
+      "projectName": "backend",
+      "env": {
+        "MAIL_USERNAME": "your-email@gmail.com",  // ← 쉼표
+        "MAIL_PASSWORD": "abcdefghijklmnop"       // ← 마지막은 쉼표 없음
+      }
+    }
+  ]
+}
+```
+
+**4. 대안: Windows 시스템 환경 변수**
+```
+1. Windows 검색: "환경 변수"
+2. 시스템 환경 변수 편집
+3. 사용자 변수에 추가:
+   - MAIL_USERNAME=your-email@gmail.com
+   - MAIL_PASSWORD=abcdefghijklmnop
+4. VS Code 완전히 종료 후 재시작
+```
+
+**5. 대안: .env 파일 사용**
+
+**파일**: `backend/.env`
+```env
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=abcdefghijklmnop
+```
+
+**build.gradle.kts**:
+```kotlin
+tasks.bootRun {
+    doFirst {
+        if (file(".env").exists()) {
+            file(".env").readLines().forEach { line ->
+                if (line.contains("=")) {
+                    val (key, value) = line.split("=", limit = 2)
+                    environment(key.trim(), value.trim())
+                }
+            }
+        }
+    }
+}
+```
+
+**6. 임시: 코드에서 직접 설정 (테스트용)**
+
+**StaffSyncApplication.java**:
+```java
+public static void main(String[] args) {
+    // ⚠️ 임시 테스트용 (Git 커밋 금지!)
+    System.setProperty("MAIL_USERNAME", "your-email@gmail.com");
+    System.setProperty("MAIL_PASSWORD", "abcdefghijklmnop");
+    
+    SpringApplication.run(StaffSyncApplication.class, args);
+}
+```
+
+**우선순위 해결 순서**:
+1. VS Code F5 실행 확인 (가장 빠름)
+2. Windows 시스템 환경 변수 (영구적)
+3. .env 파일 (개발 환경 권장)
+4. System.setProperty() (최후의 수단)
+
+**결과**: ✅ 환경 변수 정상 로드, 이메일 발송 성공
 
 ---
 
@@ -975,4 +1590,4 @@ export default ProtectedRoute;
 
 ---
 
-**마지막 업데이트**: 2025-12-16
+**마지막 업데이트**: 2025-12-17

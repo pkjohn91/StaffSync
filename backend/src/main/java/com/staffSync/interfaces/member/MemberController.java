@@ -1,5 +1,6 @@
 package com.staffSync.interfaces.member;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
@@ -22,28 +23,61 @@ public class MemberController {
 
     private final MemberService memberService;
 
-    // 1. 이메일 인증 코드 요청 API
+    /**
+     * 이메일 인증 코드 발송
+     * POST /api/members/send-code?email={email}
+     */
     @PostMapping("/send-code")
-    public ResponseEntity<String> sendVerificationCode(@RequestParam String email) {
+    public ResponseEntity<Map<String, String>> sendVerificationCode(@RequestParam String email) {
         memberService.requestVerification(email);
-        return ResponseEntity.ok("인증 코드가 발송되었습니다. (콘솔 확인)");
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "인증 코드가 발송되었습니다. (유효시간: 10분)");
+        response.put("email: ", email);
+        return ResponseEntity.ok(response);
     }
 
-    // 인증 코드 검증 API (회원가입X, only 검증O)
+    /**
+     * 이메일 인증 코드 검증
+     * POST /api/members/verify-code?email={email}&code={code}
+     */
     @PostMapping("/verify-code")
-    public ResponseEntity<String> verifyCode(@RequestParam String email, @RequestParam String code) {
-        boolean isVerified = memberService.verifyCode(email, code);
+    public ResponseEntity<Map<String, Object>> verifyCode(
+            @RequestParam String email,
+            @RequestParam String code) {
 
-        if (isVerified) {
-            return ResponseEntity.ok("인증이 완료되었습니다.");
+        boolean isvalid = memberService.verifyCode(email, code);
+
+        Map<String, Object> response = new HashMap<>();
+        if (isvalid) {
+            response.put("success", true);
+            response.put("message", "인증이 완료됐습니다.");
         } else {
-            return ResponseEntity.badRequest().body("인증 코드가 일치하지 않습니다.");
+            response.put("success", false);
+            response.put("message", "인증 코드가 일치하지 않거나 만료됐습니다.");
         }
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 인증 코드 남은 시간 조회
+     * GET /api/members/code-time?email={email}
+     */
+    public ResponseEntity<Map<String, Object>> getCodeRemainingTime(@RequestParam String email) {
+        long remainingTime = memberService.getRemainingTime(email);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("email", email);
+        response.put("remainingTime", remainingTime);
+        response.put("isExpired", remainingTime <= 0);
+
+        return ResponseEntity.ok(response);
     }
 
     // 2. 회원가입 API (검증 포함)
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, String>> register(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String name = request.get("name");
         String password = request.get("password");
@@ -51,7 +85,10 @@ public class MemberController {
 
         memberService.register(email, name, password, code);
 
-        return ResponseEntity.ok("회원가입이 완료되었습니다.");
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "회원가입이 완료됐습니다.");
+        response.put("email", email);
+        return ResponseEntity.ok(response);
     }
 
 }

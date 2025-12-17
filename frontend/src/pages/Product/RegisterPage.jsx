@@ -1,235 +1,423 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axiosConfig';
+import api from '../../api/axiosConfig';
 // import axios from 'axios';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const [step, setStep] = useState(1); // 1: 이메일, 2: 인증 코드, 3: 정보 입력
   const [formData, setFormData] = useState({
     email: '',
     verificationCode: '',
     name: '',
     password: '',
+    confirmPassword: ''
   });
 
-  const [isCodeSent, setIsCodeSent] = useState(false); // 코드 발송 여부
-  const [isVerified, setIsVerified] = useState(false); // ✅ 인증 완료 여부 (핵심)
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // 타이머 상태
+  const [remainingTime, setRemainingTime] = useState(0); // 남은 시간 (초)
+  const [timerInterval, setTimerInterval] = useState(null);
 
   // 이메일 정규식
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   const isEmailValid = emailRegex.test(formData.email);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData({ 
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError('');
   };
 
-  // 1. 인증 코드 발송 요청
-  const handleSendCode = async () => {
-    if (!isEmailValid) return alert("올바른 이메일 형식을 입력해주세요.");
+  // 타이머 시작 함수
+  const startTimer = (seconds) => {
+    setRemainingTime(seconds);
+    
+    // 기존 타이머가 있으면 제거
+    if (timerInterval) {
+      clearInterval(timerInterval);
+    }
+    
+    // 1초마다 감소
+    const interval = setInterval(() => {
+      setRemainingTime((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    setTimerInterval(interval);
+  };
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
+  }, [timerInterval]);
+
+  // 타이머 포맷 (mm:ss)
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  /**
+   * Step 1: 이메일 인증 코드 발송
+   */
+  const handleSendCode = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.email.trim()) {
+      setError('이메일을 입력해주세요.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('올바른 이메일 형식이 아닙니다.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
 
     try {
-      setLoading(true);
-      await api.post(`http://localhost:8080/api/members/send-code?email=${formData.email}`);
-      alert("인증 코드가 발송되었습니다! (백엔드 콘솔 확인)");
-      setIsCodeSent(true);
-      setIsVerified(false); // 재전송 시 인증 상태 초기화
+      const response = await api.post(
+        `http://localhost:8080/api/members/send-code?email=${formData.email}`
+      );
+      
+      setSuccess(response.data.message || '인증 코드가 발송되었습니다.');
+      setStep(2);
+      
+      // ✅ 타이머 시작 (10분 = 600초)
+      startTimer(600);
     } catch (error) {
-      alert(error.response?.data || "이메일 발송 실패");
+      setError(error.response?.data || '인증 코드 발송에 실패했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ 2. 인증 코드 확인 요청
-  const handleVerifyCode = async () => {
-    if (!formData.verificationCode) return alert("코드를 입력해주세요.");
+  /**
+   * ✅ 인증 코드 재발송
+   */
+  const handleResendCode = async () => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
 
     try {
-      // 백엔드에 코드 검증 요청
-      await api.post(`http://localhost:8080/api/members/verify-code`, null, {
-        params: {
-          email: formData.email,
-          code: formData.verificationCode
-        }
-      });
-
-      // 성공 시
-      alert("✅ 확인되었습니다.");
-      setIsVerified(true); // 이제 이름/비번 입력칸이 풀립니다!
+      const response = await api.post(
+        `http://localhost:8080/api/members/send-code?email=${formData.email}`
+      );
+      
+      setSuccess('인증 코드가 재발송되었습니다.');
+      
+      // 타이머 재시작
+      startTimer(600);
     } catch (error) {
-      alert(error.response?.data || "인증 실패");
-      setIsVerified(false);
+      setError(error.response?.data || '인증 코드 재발송에 실패했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 3. 최종 회원가입 요청
+  /**
+   * Step 2: 인증 코드 검증
+   */
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
+
+    if (!formData.verificationCode.trim()) {
+      setError('인증 코드를 입력해주세요.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await api.post(
+        `http://localhost:8080/api/members/verify-code?email=${formData.email}&code=${formData.verificationCode}`
+      );
+
+      if (response.data.success) {
+        setSuccess('인증이 완료되었습니다!');
+        setStep(3);
+        
+        // ✅ 타이머 정지
+        if (timerInterval) {
+          clearInterval(timerInterval);
+        }
+      } else {
+        setError(response.data.message || '인증 코드가 일치하지 않습니다.');
+      }
+    } catch (error) {
+      setError(error.response?.data || '인증 코드 검증에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Step 3: 회원가입 완료
+   */
   const handleRegister = async (e) => {
     e.preventDefault();
 
-    if (!isVerified) return alert("이메일 인증을 먼저 완료해주세요.");
+    if (!formData.name.trim()) {
+      setError('이름을 입력해주세요.');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
 
     try {
-      await api.post("http://localhost:8080/api/members/register", formData);
-      alert("🎉 회원가입 성공! 로그인 페이지로 이동합니다.");
-      navigate('/login'); // ✅ 수정: 로그인 페이지로 이동
+      await api.post('http://localhost:8080/api/members/register', formData);
+      
+      alert('✅ 회원가입이 완료되었습니다!');
+      navigate('/login');
     } catch (error) {
-      const errorData = error.response?.data;
-      if (typeof errorData === 'object') {
-        alert(Object.values(errorData).join('\n'));
-      } else {
-        alert(errorData || "회원가입 실패");
-      }
+      setError(error.response?.data || '회원가입에 실패했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="w-full max-w-md">
-        
-        {/* ✅ 추가: 로그인으로 돌아가기 버튼 */}
-        <button
-          onClick={() => navigate('/login')}
-          className="mb-6 flex items-center text-indigo-600 hover:text-indigo-700 transition-colors font-medium"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          로그인으로 돌아가기
-        </button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        {/* 로고 */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-full mb-4">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900">회원가입</h1>
+          <p className="text-gray-600 mt-2">StaffSync에 오신 것을 환영합니다</p>
+        </div>
 
-        {/* 회원가입 폼 */}
-        <div className="bg-white p-8 rounded-lg shadow-xl">
-          
-          {/* 헤더 */}
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">회원가입</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              StaffSync에 오신 것을 환영합니다
-            </p>
+        {/* 진행 상태 표시 */}
+        <div className="bg-white rounded-lg shadow-xl p-8">
+          <div className="flex justify-between mb-8">
+            {[1, 2, 3].map((s) => (
+              <div key={s} className="flex items-center">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                    step >= s
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-200 text-gray-500'
+                  }`}
+                >
+                  {s}
+                </div>
+                {s < 3 && (
+                  <div
+                    className={`w-16 h-1 ${
+                      step > s ? 'bg-indigo-600' : 'bg-gray-200'
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
           </div>
 
-          <form onSubmit={handleRegister} className="space-y-4">
-            
-            {/* 1. 이메일 입력 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                이메일
-              </label>
-              <div className="flex gap-2">
+          {/* 에러/성공 메시지 */}
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          {success && (
+            <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+              <p className="text-sm text-green-700">{success}</p>
+            </div>
+          )}
+
+          {/* Step 1: 이메일 입력 */}
+          {step === 1 && (
+            <form onSubmit={handleSendCode}>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">이메일 입력</h2>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  이메일
+                </label>
                 <input
                   type="email"
                   name="email"
-                  placeholder="example@email.com"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`flex-1 border px-4 py-3 rounded-lg outline-none transition-colors ${
-                    isEmailValid ? 'border-green-500 bg-green-50' : 'border-gray-300'
-                  }`}
-                  disabled={isCodeSent}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="example@email.com"
+                  required
                 />
-                <button
-                  type="button"
-                  onClick={handleSendCode}
-                  disabled={!isEmailValid || loading || isCodeSent}
-                  className={`px-4 py-3 rounded-lg font-medium text-white transition-colors whitespace-nowrap ${
-                    !isEmailValid || isCodeSent 
-                      ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-indigo-600 hover:bg-indigo-700'
-                  }`}
-                >
-                  {loading ? "전송 중..." : isCodeSent ? "발송 완료" : "인증 코드"}
-                </button>
               </div>
-            </div>
 
-            {/* 2. 인증 코드 입력 & 확인 버튼 */}
-            {isCodeSent && (
-              <div className="animate-fade-in-down">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? '발송 중...' : '인증 코드 발송'}
+              </button>
+            </form>
+          )}
+
+          {/* Step 2: 인증 코드 입력 */}
+          {step === 2 && (
+            <form onSubmit={handleVerifyCode}>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">인증 코드 확인</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                {formData.email}로 발송된 인증 코드를 입력하세요.
+              </p>
+              
+              {/* ✅ 타이머 표시 */}
+              {remainingTime > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-blue-800">
+                      ⏱️ 남은 시간
+                    </span>
+                    <span className={`text-lg font-bold ${
+                      remainingTime <= 60 ? 'text-red-600' : 'text-blue-600'
+                    }`}>
+                      {formatTime(remainingTime)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {remainingTime === 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-red-700">
+                    ⚠️ 인증 코드가 만료되었습니다. 재발송 버튼을 눌러주세요.
+                  </p>
+                </div>
+              )}
+
+              <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   인증 코드
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    name="verificationCode"
-                    placeholder="6자리 코드 입력"
-                    value={formData.verificationCode}
-                    onChange={handleChange}
-                    disabled={isVerified}
-                    className="flex-1 border px-4 py-3 rounded-lg bg-blue-50 focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleVerifyCode}
-                    disabled={isVerified}
-                    className={`px-4 py-3 rounded-lg font-medium text-white whitespace-nowrap transition-colors ${
-                      isVerified 
-                        ? 'bg-green-500 cursor-not-allowed' 
-                        : 'bg-indigo-600 hover:bg-indigo-700'
-                    }`}
-                  >
-                    {isVerified ? "✓ 완료" : "확인"}
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  name="verificationCode"
+                  value={formData.verificationCode}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-center text-2xl tracking-widest"
+                  placeholder="000000"
+                  maxLength="6"
+                  required
+                />
               </div>
-            )}
 
-            {/* 3. 이름 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                이름
-              </label>
-              <input
-                type="text"
-                name="name"
-                placeholder="홍길동"
-                value={formData.name}
-                onChange={handleChange}
-                disabled={!isVerified}
-                className={`w-full border px-4 py-3 rounded-lg outline-none transition-colors ${
-                  !isVerified 
-                    ? 'bg-gray-100 cursor-not-allowed border-gray-200' 
-                    : 'bg-white border-gray-300 focus:ring-2 focus:ring-indigo-500'
-                }`}
-              />
-            </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={loading}
+                  className="flex-1 border border-indigo-600 text-indigo-600 py-3 px-4 rounded-lg font-medium hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  재발송
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || remainingTime === 0}
+                  className="flex-1 bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? '확인 중...' : '인증 확인'}
+                </button>
+              </div>
+            </form>
+          )}
 
-            {/* 4. 비밀번호 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                비밀번호
-              </label>
-              <input
-                type="password"
-                name="password"
-                placeholder="8자 이상 입력"
-                value={formData.password}
-                onChange={handleChange}
-                disabled={!isVerified}
-                className={`w-full border px-4 py-3 rounded-lg outline-none transition-colors ${
-                  !isVerified 
-                    ? 'bg-gray-100 cursor-not-allowed border-gray-200' 
-                    : 'bg-white border-gray-300 focus:ring-2 focus:ring-indigo-500'
-                }`}
-              />
-            </div>
+          {/* Step 3: 정보 입력 */}
+          {step === 3 && (
+            <form onSubmit={handleRegister}>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">정보 입력</h2>
 
-            {/* 5. 가입 버튼 */}
-            <button
-              type="submit"
-              disabled={!isVerified}
-              className={`w-full py-3 rounded-lg font-bold transition-all shadow-lg mt-6 ${
-                isVerified 
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-xl' 
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              {isVerified ? '가입하기' : '이메일 인증을 먼저 완료해주세요'}
-            </button>
-          </form>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  이름
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="홍길동"
+                  required
+                />
+              </div>
 
-          {/* 이미 계정이 있는 경우 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  비밀번호
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="최소 6자 이상"
+                  required
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  비밀번호 확인
+                </label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="비밀번호 재입력"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? '가입 중...' : '회원가입 완료'}
+              </button>
+            </form>
+          )}
+
+          {/* 로그인 링크 */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               이미 계정이 있으신가요?{' '}

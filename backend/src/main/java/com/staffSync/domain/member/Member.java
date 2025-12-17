@@ -43,6 +43,7 @@ public class Member {
         this.password = password;
         this.name = name;
         this.isVerified = false; // 초기에는 이메일 미인증 상태
+        this.role = role;
         verifyEmail();
     }
 
