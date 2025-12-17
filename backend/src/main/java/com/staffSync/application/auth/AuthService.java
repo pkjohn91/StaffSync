@@ -4,8 +4,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.staffSync.member.domain.Member;
-import com.staffSync.member.domain.MemberRepository;
+import com.staffSync.domain.member.Member;
+import com.staffSync.domain.member.MemberRepository;
 import com.staffSync.application.auth.dto.LoginRequest;
 import com.staffSync.application.auth.dto.LoginResponse;
 import com.staffSync.infrastructure.security.JwtTokenProvider;
